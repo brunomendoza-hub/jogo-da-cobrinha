@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FPS 3D Realista 🔫🎯</title>
+  <title>FPS 3D Ultra - Campo de Treinamento 🔫🎯</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,30 +13,34 @@
     body {
       margin: 0;
       overflow: hidden;
-      background-color: #000;
+      background-color: #87ceeb;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
-    /* HUD */
+    /* HUD Futurista */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
-      color: #00ffcc;
-      font-size: 1.5rem;
-      font-weight: bold;
-      text-shadow: 0 0 10px rgba(0, 255, 204, 0.7);
+      color: #ffffff;
+      font-size: 1.6rem;
+      font-weight: 900;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
       pointer-events: none;
       font-family: monospace;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 10px 20px;
+      border-radius: 8px;
+      border-left: 5px solid #ff3300;
     }
 
-    /* Mira tática */
+    /* Mira tática de alta precisão */
     #crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 14px;
-      height: 14px;
+      width: 20px;
+      height: 20px;
       transform: translate(-50%, -50%);
       pointer-events: none;
     }
@@ -44,12 +48,12 @@
     #crosshair::before, #crosshair::after {
       content: '';
       position: absolute;
-      background-color: rgba(0, 255, 204, 0.8);
+      background-color: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 4px #000;
     }
 
-    /* Linhas verticais e horizontais da mira */
-    #crosshair::before { top: 6px; left: 0; width: 14px; height: 2px; }
-    #crosshair::after { top: 0; left: 6px; width: 2px; height: 14px; }
+    #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+    #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
 
     /* Tela de Início */
     #instructions {
@@ -60,35 +64,23 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: radial-gradient(circle, rgba(15,23,42,0.9) 0%, rgba(3,7,18,0.98) 100%);
+      background: radial-gradient(circle, rgba(15, 23, 42, 0.85) 0%, rgba(3, 7, 18, 0.95) 100%);
       color: white;
       cursor: pointer;
       text-align: center;
+      z-index: 10;
     }
 
     #instructions h1 {
       font-size: 3.5rem;
       margin: 0 0 10px 0;
-      color: #00ffcc;
-      text-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+      color: #ffaa00;
+      text-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
     }
 
     #instructions p {
       font-size: 1.2rem;
-      color: #94a3b8;
-    }
-
-    /* Clarion de luz do tiro (Muzzle Flash) */
-    #flash {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: rgba(255, 200, 100, 0.15);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.05s ease-out;
+      color: #cbd5e1;
     }
   </style>
 
@@ -97,14 +89,13 @@
 </head>
 <body>
 
-  <div id="hud">DRONES DESTRUÍDOS: <span id="score">0</span></div>
+  <div id="hud">ALVOS ELIMINADOS: <span id="score">0</span></div>
   <div id="crosshair"></div>
-  <div id="flash"></div>
 
   <div id="instructions">
-    <h1>CYBER HUNT 3D 🔫</h1>
-    <p>Clique em qualquer lugar para carregar a arma e jogar</p>
-    <p><small>Controles: <b>W, A, S, D</b> para andar | <b>Mouse</b> para apontar | <b>Clique Esquerdo</b> para atirar</small></p>
+    <h1>CAMPO DE TIRO 3D 🔫</h1>
+    <p>Clique para iniciar a simulação</p>
+    <p><small>Controles: <b>W, A, S, D</b> para mover | <b>Mouse</b> para apontar | <b>Clique Esquerdo</b> para disparar</small></p>
   </div>
 
   <script>
@@ -112,9 +103,8 @@
     let targets = [];
     let bullets = [];
     let score = 0;
-    let gunGroup;
+    let gunGroup, muzzleFlashLight;
 
-    // Estado do jogo e físicas
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
@@ -122,16 +112,29 @@
 
     const instructions = document.getElementById('instructions');
     const scoreElement = document.getElementById('score');
-    const flashElement = document.getElementById('flash');
 
-    // --- SINTETIZADOR DE ÁUDIO PROCEDURAL (Web Audio API) ---
+    // --- SINTETIZADOR AVANÇADO DE ÁUDIO DE ARMA (Web Audio API) ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     function playGunshotSound() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime;
 
-      // Ruído do estouro do tiro
-      const bufferSize = audioCtx.sampleRate * 0.15;
+      // 1. Estouro de Sub-Grave (O "punch" no peito)
+      const subOsc = audioCtx.createOscillator();
+      const subGain = audioCtx.createGain();
+      subOsc.type = 'triangle';
+      subOsc.frequency.setValueAtTime(160, t);
+      subOsc.frequency.exponentialRampToValueAtTime(30, t + 0.12);
+      subGain.gain.setValueAtTime(1.2, t);
+      subGain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+      subOsc.connect(subGain);
+      subGain.connect(audioCtx.destination);
+      subOsc.start(t);
+      subOsc.stop(t + 0.12);
+
+      // 2. Ruído do Disparo (Snap/Crack)
+      const bufferSize = audioCtx.sampleRate * 0.25;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
@@ -141,27 +144,41 @@
       const noise = audioCtx.createBufferSource();
       noise.buffer = buffer;
 
-      // Filtro para dar graves de arma de verdade
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3000, audioCtx.currentTime);
-      filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+      filter.frequency.setValueAtTime(4000, t);
+      filter.frequency.exponentialRampToValueAtTime(300, t + 0.2);
 
-      const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(1.0, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
 
       noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioCtx.destination);
+      filter.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
+      noise.start(t);
 
-      noise.start();
+      // 3. Som de Cápsula Caindo (Metal Brass Tint)
+      setTimeout(() => {
+        const brassOsc = audioCtx.createOscillator();
+        const brassGain = audioCtx.createGain();
+        brassOsc.type = 'sine';
+        brassOsc.frequency.setValueAtTime(2500, audioCtx.currentTime);
+        brassOsc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.05);
+        brassGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        brassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        brassOsc.connect(brassGain);
+        brassGain.connect(audioCtx.destination);
+        brassOsc.start();
+        brassOsc.stop(audioCtx.currentTime + 0.05);
+      }, 120);
     }
 
     function playExplosionSound() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime;
 
-      const bufferSize = audioCtx.sampleRate * 0.3;
+      const bufferSize = audioCtx.sampleRate * 0.4;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
@@ -173,58 +190,50 @@
 
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(800, audioCtx.currentTime);
-      filter.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+      filter.frequency.setValueAtTime(1200, t);
+      filter.frequency.exponentialRampToValueAtTime(40, t + 0.4);
 
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.9, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
 
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(audioCtx.destination);
-
-      noise.start();
+      noise.start(t);
     }
 
     function init() {
-      // 1. Cena
+      // 1. Cena com iluminação clara de dia
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0a12);
-      scene.fog = new THREE.FogExp2(0x0a0a12, 0.015);
+      scene.background = new THREE.Color(0xdbeafe); // Céu claro
+      scene.fog = new THREE.FogExp2(0xdbeafe, 0.008);
 
       // 2. Câmera
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-      // 3. Iluminação
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+      // 3. Luzes do Dia
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0x00ffcc, 0.8);
-      dirLight.position.set(20, 40, 20);
-      scene.add(dirLight);
+      const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
+      sunLight.position.set(40, 80, 40);
+      sunLight.castShadow = true;
+      scene.add(sunLight);
 
-      // 4. Construção da Arma 3D (Anexada à Câmera)
-      createGun();
+      // 4. Criar Arma Detalhada
+      createDetailedGun();
 
       // 5. Controles
       controls = new THREE.PointerLockControls(camera, document.body);
 
-      instructions.addEventListener('click', () => {
-        controls.lock();
-      });
-
-      controls.addEventListener('lock', () => {
-        instructions.style.display = 'none';
-      });
-
-      controls.addEventListener('unlock', () => {
-        instructions.style.display = 'flex';
-      });
+      instructions.addEventListener('click', () => controls.lock());
+      controls.addEventListener('lock', () => instructions.style.display = 'none');
+      controls.addEventListener('unlock', () => instructions.style.display = 'flex');
 
       scene.add(controls.getObject());
 
-      // Movimentação do Teclado
+      // Teclado
       document.addEventListener('keydown', (e) => {
         switch (e.code) {
           case 'KeyW': moveForward = true; break;
@@ -245,117 +254,153 @@
 
       // Atirar
       document.addEventListener('mousedown', (e) => {
-        if (controls.isLocked && e.button === 0) {
-          shoot();
-        }
+        if (controls.isLocked && e.button === 0) shoot();
       });
 
-      // 6. Cenário (Piso e Paredes Sci-Fi)
-      const grid = new THREE.GridHelper(200, 80, 0x00ffcc, 0x1e293b);
-      grid.position.y = 0;
-      scene.add(grid);
+      // 6. Construir o Mapa do Campo de Tiro
+      buildEnvironment();
 
-      // 7. Spawno dos Novos Alvos (Drones)
-      for (let i = 0; i < 10; i++) {
-        spawnDrone();
-      }
+      // 7. Spawno dos Alvos
+      for (let i = 0; i < 8; i++) spawnTacticalTarget();
 
       // Renderizador
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
       document.body.appendChild(renderer.domElement);
 
       window.addEventListener('resize', onWindowResize);
     }
 
-    // Criar o Modelo 3D do Rifle
-    function createGun() {
+    // Mapa com chão espelhado e obstáculos
+    function buildEnvironment() {
+      // Piso principal
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.5 });
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      const grid = new THREE.GridHelper(200, 40, 0xffaa00, 0x475569);
+      grid.position.y = 0.01;
+      scene.add(grid);
+
+      // Pilares de concreto para dar tridimensionalidade ao ambiente
+      const pillarMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
+      for (let i = 0; i < 16; i++) {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(3, 12, 3), pillarMat);
+        pillar.position.set((Math.random() - 0.5) * 120, 6, (Math.random() - 0.5) * 120);
+        scene.add(pillar);
+      }
+    }
+
+    // Rifle Tático Detalhado
+    function createDetailedGun() {
       gunGroup = new THREE.Group();
 
-      const darkMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.2, metalness: 0.8 });
-      const metalMat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.1, metalness: 0.9 });
-      const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+      const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
+      const blackPlastic = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 });
 
       // Corpo principal
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.6), darkMat);
-      body.position.set(0, 0, 0);
+      const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), darkMetal);
+      
+      // Pente de Munição Curvo
+      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.1), blackPlastic);
+      mag.position.set(0, -0.12, -0.05);
+      mag.rotation.x = 0.2;
 
-      // Cano da arma
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 16), metalMat);
+      // Cano e Silenciador
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 16), darkMetal);
       barrel.rotation.x = Math.PI / 2;
-      barrel.position.set(0, 0.03, -0.4);
+      barrel.position.set(0, 0.02, -0.4);
+
+      const suppressor = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.25, 16), blackPlastic);
+      suppressor.rotation.x = Math.PI / 2;
+      suppressor.position.set(0, 0.02, -0.7);
+
+      // Mira Telescópica (Scope)
+      const scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 16), blackPlastic);
+      scopeBody.rotation.x = Math.PI / 2;
+      scopeBody.position.set(0, 0.09, -0.1);
+
+      const scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.01, 16), goldMat);
+      scopeLens.rotation.x = Math.PI / 2;
+      scopeLens.position.set(0, 0.09, -0.23);
 
       // Empunhadura
-      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.1), darkMat);
-      grip.position.set(0, -0.12, 0.15);
-      grip.rotation.x = -0.2;
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.08), blackPlastic);
+      grip.position.set(0, -0.12, 0.12);
+      grip.rotation.x = -0.3;
 
-      // Mira Neon Cyan
-      const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.02), cyanMat);
-      sight.position.set(0, 0.09, -0.2);
+      // Luz do Fogo na Ponta da Arma
+      muzzleFlashLight = new THREE.PointLight(0xffaa00, 0, 5);
+      muzzleFlashLight.position.set(0, 0.02, -0.85);
 
-      gunGroup.add(body, barrel, grip, sight);
+      gunGroup.add(receiver, mag, barrel, suppressor, scopeBody, scopeLens, grip, muzzleFlashLight);
 
-      // Posiciona a arma no canto inferior direito da tela
-      gunGroup.position.set(0.25, -0.2, -0.45);
+      // Posicionar arma na mão direita
+      gunGroup.position.set(0.22, -0.18, -0.4);
       camera.add(gunGroup);
     }
 
-    // Criar Alvos (Drones Voadores)
-    function spawnDrone() {
-      const droneGroup = new THREE.Group();
+    // Alvo Tático Profissional (Disco com Círculos Concentricos)
+    function spawnTacticalTarget() {
+      const targetGroup = new THREE.Group();
 
-      // Núcleo do drone
-      const coreMat = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3 });
-      const core = new THREE.Mesh(new THREE.OctahedronGeometry(1.0), coreMat);
+      // Placa Vermelha/Branca
+      const baseGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32);
+      const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+      const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
 
-      // Anel futurista
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0xff0055, wireframe: true });
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 8, 24), ringMat);
-      ring.rotation.x = Math.PI / 2;
+      const outerRing = new THREE.Mesh(baseGeo, redMat);
+      outerRing.rotation.x = Math.PI / 2;
 
-      droneGroup.add(core, ring);
+      const innerRing = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.12, 32), whiteMat);
+      innerRing.rotation.x = Math.PI / 2;
 
-      // Posição inicial flutuante
-      droneGroup.position.x = (Math.random() - 0.5) * 80;
-      droneGroup.position.z = (Math.random() - 0.5) * 80;
-      droneGroup.position.y = 2 + Math.random() * 6;
+      const bullseye = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.14, 32), redMat);
+      bullseye.rotation.x = Math.PI / 2;
 
-      // Dados para animação de movimento aleatório
-      droneGroup.userData = {
-        speedX: (Math.random() - 0.5) * 0.08,
-        speedY: (Math.random() - 0.5) * 0.03,
-        speedZ: (Math.random() - 0.5) * 0.08,
-        ring: ring
+      targetGroup.add(outerRing, innerRing, bullseye);
+
+      targetGroup.position.x = (Math.random() - 0.5) * 80;
+      targetGroup.position.z = (Math.random() - 0.5) * 80;
+      targetGroup.position.y = 1.5 + Math.random() * 4;
+
+      targetGroup.userData = {
+        speedY: (Math.random() - 0.5) * 0.02,
+        speedX: (Math.random() - 0.5) * 0.04
       };
 
-      scene.add(droneGroup);
-      targets.push(droneGroup);
+      scene.add(targetGroup);
+      targets.push(targetGroup);
     }
 
-    // Ação do Tiro
+    // Disparo
     function shoot() {
       playGunshotSound();
 
-      // Muzzle Flash na tela
-      flashElement.style.opacity = '1';
-      setTimeout(() => flashElement.style.opacity = '0', 40);
+      // Clarão real da iluminação na arma
+      muzzleFlashLight.intensity = 3;
+      setTimeout(() => muzzleFlashLight.intensity = 0, 40);
 
-      // Efeito de Recuo (Coice) da arma
-      gunGroup.position.z = -0.35;
-      gunGroup.rotation.x = 0.15;
+      // Coice forte da arma
+      gunGroup.position.z = -0.28;
+      gunGroup.rotation.x = 0.2;
 
-      // Criar o Projétil
-      const bulletGeo = new THREE.SphereGeometry(0.08, 8, 8);
-      const bulletMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+      // Projétil Tático Amarelo
+      const bulletGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 8);
+      const bulletMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
       const bullet = new THREE.Mesh(bulletGeo, bulletMat);
 
       bullet.position.copy(camera.position);
 
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
-      bullet.velocity = dir.multiplyScalar(2.5);
+      
+      bullet.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      bullet.velocity = dir.multiplyScalar(3.0);
 
       scene.add(bullet);
       bullets.push(bullet);
@@ -367,7 +412,7 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // Loop Principal
+    // Loop do Jogo
     function animate() {
       requestAnimationFrame(animate);
 
@@ -376,11 +421,11 @@
       if (controls.isLocked) {
         const delta = (time - prevTime) / 1000;
 
-        // Recuperação suave do recuo da arma
-        gunGroup.position.z += (-0.45 - gunGroup.position.z) * 0.15;
-        gunGroup.rotation.x += (0 - gunGroup.rotation.x) * 0.15;
+        // Suavização do coice da arma
+        gunGroup.position.z += (-0.4 - gunGroup.position.z) * 0.12;
+        gunGroup.rotation.x += (0 - gunGroup.rotation.x) * 0.12;
 
-        // Física do Jogador
+        // Movimentação
         velocity.x -= velocity.x * 10.0 * delta;
         velocity.z -= velocity.z * 10.0 * delta;
 
@@ -394,31 +439,23 @@
         controls.moveRight(-velocity.x * delta);
         controls.moveForward(-velocity.z * delta);
 
-        // Movimentação e Animação dos Drones
-        targets.forEach(drone => {
-          drone.position.x += drone.userData.speedX;
-          drone.position.y += Math.sin(time * 0.003) * 0.02; // Flutuando
-          drone.position.z += drone.userData.speedZ;
-
-          drone.userData.ring.rotation.z += 0.03; // Anel girando
-
-          // Rebater nas bordas do mapa
-          if (Math.abs(drone.position.x) > 50) drone.userData.speedX *= -1;
-          if (Math.abs(drone.position.z) > 50) drone.userData.speedZ *= -1;
+        // Movimentação dos Alvos
+        targets.forEach(t => {
+          t.position.y += Math.sin(time * 0.002) * 0.01;
+          t.rotation.y += 0.01;
         });
 
-        // Atualização e Colisão das Balas
+        // Balas e Colisão
         for (let i = bullets.length - 1; i >= 0; i--) {
           const b = bullets[i];
           b.position.add(b.velocity);
 
           for (let j = targets.length - 1; j >= 0; j--) {
-            const drone = targets[j];
-            if (b.position.distanceTo(drone.position) < 1.6) {
-              
+            const t = targets[j];
+            if (b.position.distanceTo(t.position) < 1.4) {
               playExplosionSound();
 
-              scene.remove(drone);
+              scene.remove(t);
               targets.splice(j, 1);
 
               scene.remove(b);
@@ -427,7 +464,7 @@
               score++;
               scoreElement.innerText = score;
 
-              spawnDrone();
+              spawnTacticalTarget();
               break;
             }
           }
