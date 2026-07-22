@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FPS/TPS 3D Corrigido 🔫🎯</title>
+  <title>FPS 3D - Mira Transparente 🔫🎯</title>
   <style>
     * {
       box-sizing: border-box;
@@ -35,16 +35,17 @@
       z-index: 5;
     }
 
-    /* Mira tática */
+    /* Mira Básica de Quadril */
     #crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 5;
+      transition: opacity 0.1s ease;
     }
 
     #crosshair::before, #crosshair::after {
@@ -54,8 +55,8 @@
       box-shadow: 0 0 4px #000;
     }
 
-    #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
-    #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+    #crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
+    #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
 
     /* Tela de Início */
     #instructions {
@@ -91,9 +92,7 @@
 </head>
 <body>
 
-  <div id="hud">
-    ALVOS: <span id="score">0</span> | VISÃO: <span id="view-mode">1ª PESSOA</span>
-  </div>
+  <div id="hud">ALVOS: <span id="score">0</span></div>
   <div id="crosshair"></div>
 
   <div id="instructions">
@@ -101,7 +100,7 @@
     <p>Clique em qualquer lugar para começar</p>
     <p><small>
       <b>W, A, S, D</b>: Mover | <b>Mouse</b>: Olhar | <b>Clique Esquerdo</b>: Atirar<br>
-      <b>Botão Direito (Segurar)</b>: Mirar (ADS) | <b>Tecla V</b>: Alternar 1ª / 3ª Pessoa
+      <b>Botão Direito (Segurar)</b>: Mirar através da Luneta
     </small></p>
   </div>
 
@@ -109,9 +108,8 @@
     let scene, camera, renderer, controls;
     let targets = [], bullets = [];
     let score = 0;
-    let gunGroup, muzzleFlashLight, playerMesh;
+    let gunGroup, muzzleFlashLight;
 
-    let isThirdPerson = false;
     let isAiming = false;
 
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
@@ -121,7 +119,7 @@
 
     const instructions = document.getElementById('instructions');
     const scoreElement = document.getElementById('score');
-    const viewModeElement = document.getElementById('view-mode');
+    const crosshair = document.getElementById('crosshair');
 
     // --- SINTETIZADOR DE ÁUDIO ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -201,11 +199,8 @@
       sunLight.position.set(40, 80, 40);
       scene.add(sunLight);
 
-      // Criar Arma
-      createDetailedGun();
-
-      // Criar Soldado (separado da câmera)
-      createPlayerMesh();
+      // Criar Arma com Luneta Vazada e Transparente
+      createScopeGun();
 
       controls = new THREE.PointerLockControls(camera, document.body);
 
@@ -223,7 +218,6 @@
           case 'KeyA': moveLeft = true; break;
           case 'KeyS': moveBackward = true; break;
           case 'KeyD': moveRight = true; break;
-          case 'KeyV': toggleCameraView(); break;
         }
       });
 
@@ -257,31 +251,24 @@
       window.addEventListener('resize', onWindowResize);
     }
 
-    // Modelo do Soldado para 3ª Pessoa (Posicionado atrás da arma)
-    function createPlayerMesh() {
-      playerMesh = new THREE.Group();
-      const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
-      const matArmor = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
-
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.25), matArmor);
-      torso.position.set(0, -0.3, 0.3);
-
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), matBody);
-      head.position.set(0, 0.1, 0.3);
-
-      playerMesh.add(torso, head);
-      playerMesh.visible = false; // Escondido na 1ª pessoa
-      camera.add(playerMesh);
-    }
-
-    // Criar Arma
-    function createDetailedGun() {
+    // ARMA COM LUNETA VAZADA (MIRA TRANSPARENTE)
+    function createScopeGun() {
       gunGroup = new THREE.Group();
 
       const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
       const blackPlastic = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
-      const goldMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 });
+      
+      // Vidro Transparente da Luneta
+      const glassMat = new THREE.MeshBasicMaterial({ 
+        color: 0x00ffff, 
+        transparent: true, 
+        opacity: 0.15 
+      });
 
+      // Retícula Vermelha de Pontaria dentro do vidro
+      const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+      // Corpo principal e pente
       const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), darkMetal);
       const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.1), blackPlastic);
       mag.position.set(0, -0.12, -0.05);
@@ -291,17 +278,20 @@
       barrel.rotation.x = Math.PI / 2;
       barrel.position.set(0, 0.02, -0.4);
 
-      const suppressor = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.25, 16), blackPlastic);
-      suppressor.rotation.x = Math.PI / 2;
-      suppressor.position.set(0, 0.02, -0.7);
+      // --- ESTRUTURA DA LUNETA (Oco por dentro) ---
+      // Tubo externo da luneta
+      const scopeTube = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.25, 16, 1, true), blackPlastic);
+      scopeTube.rotation.x = Math.PI / 2;
+      scopeTube.position.set(0, 0.09, -0.1);
 
-      const scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 16), blackPlastic);
-      scopeBody.rotation.x = Math.PI / 2;
-      scopeBody.position.set(0, 0.09, -0.1);
-
-      const scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.01, 16), goldMat);
+      // Vidro da lente frontal
+      const scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.005, 16), glassMat);
       scopeLens.rotation.x = Math.PI / 2;
-      scopeLens.position.set(0, 0.09, -0.23);
+      scopeLens.position.set(0, 0.09, -0.22);
+
+      // Ponto Vermelho de Pontaria (Red Dot) dentro da lente
+      const redDot = new THREE.Mesh(new THREE.SphereGeometry(0.004, 8, 8), reticleMat);
+      redDot.position.set(0, 0.09, -0.21);
 
       const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.08), blackPlastic);
       grip.position.set(0, -0.12, 0.12);
@@ -310,23 +300,11 @@
       muzzleFlashLight = new THREE.PointLight(0xffaa00, 0, 5);
       muzzleFlashLight.position.set(0, 0.02, -0.85);
 
-      gunGroup.add(receiver, mag, barrel, suppressor, scopeBody, scopeLens, grip, muzzleFlashLight);
+      gunGroup.add(receiver, mag, barrel, scopeTube, scopeLens, redDot, grip, muzzleFlashLight);
       
+      // Posição de descanso no canto da tela
       gunGroup.position.set(0.22, -0.18, -0.4);
       camera.add(gunGroup);
-    }
-
-    // Alternar Visão
-    function toggleCameraView() {
-      isThirdPerson = !isThirdPerson;
-      
-      if (isThirdPerson) {
-        viewModeElement.innerText = "3ª PESSOA";
-        playerMesh.visible = true;
-      } else {
-        viewModeElement.innerText = "1ª PESSOA";
-        playerMesh.visible = false;
-      }
     }
 
     function buildEnvironment() {
@@ -374,7 +352,7 @@
       muzzleFlashLight.intensity = 3;
       setTimeout(() => muzzleFlashLight.intensity = 0, 40);
 
-      gunGroup.position.z += 0.08;
+      gunGroup.position.z += 0.05;
 
       const bulletGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 8);
       const bulletMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
@@ -405,27 +383,23 @@
       if (controls.isLocked) {
         const delta = (time - prevTime) / 1000;
 
-        // --- SISTEMA DE CÂMERA E MIRA ---
-        if (!isThirdPerson) {
-          // 1ª Pessoa
-          if (isAiming) {
-            gunGroup.position.x += (0 - gunGroup.position.x) * 0.2;
-            gunGroup.position.y += (-0.09 - gunGroup.position.y) * 0.2;
-            gunGroup.position.z += (-0.25 - gunGroup.position.z) * 0.2;
-            camera.fov += (40 - camera.fov) * 0.2;
-          } else {
-            gunGroup.position.x += (0.22 - gunGroup.position.x) * 0.2;
-            gunGroup.position.y += (-0.18 - gunGroup.position.y) * 0.2;
-            gunGroup.position.z += (-0.4 - gunGroup.position.z) * 0.2;
-            camera.fov += (75 - camera.fov) * 0.2;
-          }
+        // --- MIRA ALINHADA NO VIDRO (ADS) ---
+        if (isAiming) {
+          // Centraliza EXATAMENTE o ponto da luneta no olho do jogador
+          gunGroup.position.x += (0 - gunGroup.position.x) * 0.25;
+          gunGroup.position.y += (-0.09 - gunGroup.position.y) * 0.25;
+          gunGroup.position.z += (-0.15 - gunGroup.position.z) * 0.25;
+          
+          camera.fov += (35 - camera.fov) * 0.2; // Zoom
+          crosshair.style.opacity = '0'; // Esconde a mira 2D da tela
         } else {
-          // 3ª Pessoa (Ajusta offset da arma sem bloquear a tela)
-          gunGroup.position.x += (0.35 - gunGroup.position.x) * 0.2;
-          gunGroup.position.y += (-0.25 - gunGroup.position.y) * 0.2;
-          gunGroup.position.z += (-0.6 - gunGroup.position.z) * 0.2;
+          // Voltar à posição normal no canto da tela
+          gunGroup.position.x += (0.22 - gunGroup.position.x) * 0.25;
+          gunGroup.position.y += (-0.18 - gunGroup.position.y) * 0.25;
+          gunGroup.position.z += (-0.4 - gunGroup.position.z) * 0.25;
 
-          camera.fov += (isAiming ? 45 : 75 - camera.fov) * 0.2;
+          camera.fov += (75 - camera.fov) * 0.2;
+          crosshair.style.opacity = '1';
         }
         camera.updateProjectionMatrix();
 
@@ -443,13 +417,13 @@
         controls.moveRight(-velocity.x * delta);
         controls.moveForward(-velocity.z * delta);
 
-        // Movimento dos alvos
+        // Animação dos Alvos
         targets.forEach(t => {
           t.position.y += Math.sin(time * 0.002) * 0.01;
           t.rotation.y += 0.01;
         });
 
-        // Balas e Colisões
+        // Balas e Colisão
         for (let i = bullets.length - 1; i >= 0; i--) {
           const b = bullets[i];
           b.position.add(b.velocity);
