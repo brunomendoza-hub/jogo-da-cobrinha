@@ -2,153 +2,229 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo da Cobrinha 🐍</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Candy Match 🍬</title>
   <style>
+    * {
+      box-sizing: border-box;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
     body {
-      background-color: #1a1a24;
+      background-color: #2b1055;
       color: #fff;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
       margin: 0;
+      padding: 10px;
     }
 
     h1 {
-      margin-bottom: 10px;
+      margin: 0 0 5px 0;
+      font-size: 1.8rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
 
     #score-board {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       margin-bottom: 15px;
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 8px 20px;
+      border-radius: 20px;
     }
 
-    canvas {
-      border: 4px solid #4e4e6d;
-      background-color: #0f0f17;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    /* Tabuleiro */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 4px;
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 1 / 1;
+      background-color: rgba(0, 0, 0, 0.3);
+      padding: 8px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    /* Cada Bloco do Doce */
+    .candy {
+      background-color: rgba(255, 255, 255, 0.15);
       border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
     }
 
-    .dica {
-      margin-top: 15px;
-      color: #aaa;
-      font-size: 0.9rem;
+    .candy:active {
+      transform: scale(0.9);
+    }
+
+    /* Destaque quando selecionado */
+    .selected {
+      background-color: rgba(255, 215, 0, 0.6);
+      border: 2px solid #ffd700;
     }
   </style>
 </head>
 <body>
 
-  <h1>Jogo da Cobrinha 🐍</h1>
+  <h1>Candy Match 🍬</h1>
   <div id="score-board">Pontuação: <span id="score">0</span></div>
-  <canvas id="snake" width="400" height="400"></canvas>
-  <div class="dica">Use as **setas do teclado** para jogar.</div>
+
+  <div id="grid"></div>
 
   <script>
-    const canvas = document.getElementById('snake');
-    const context = canvas.getContext('2d');
-    const scoreElement = document.getElementById('score');
-
-    const box = 20; // Tamanho de cada bloco do grid
+    const width = 8;
+    const grid = document.getElementById('grid');
+    const scoreDisplay = document.getElementById('score');
+    const candies = ['🍬', '🍭', '🍫', '🍩', '🍇'];
+    let squares = [];
     let score = 0;
 
-    // A cobrinha começa no meio
-    let snake = [];
-    snake[0] = { x: 10 * box, y: 10 * box };
+    let squareBeingDragged;
+    let squareBeingReplaced;
 
-    // Direção inicial
-    let d = 'RIGHT';
+    // Criar o tabuleiro
+    function createBoard() {
+      for (let i = 0; i < width * width; i++) {
+        const square = document.createElement('div');
+        square.setAttribute('id', i);
+        square.classList.add('candy');
+        
+        let randomCandy = candies[Math.floor(Math.random() * candies.length)];
+        square.innerText = randomCandy;
 
-    // Comida em posição aleatória
-    let food = {
-      x: Math.floor(Math.random() * 19 + 1) * box,
-      y: Math.floor(Math.random() * 19 + 1) * box
-    };
+        // Clique/Toque para selecionar
+        square.addEventListener('click', candyClick);
 
-    // Escutar as teclas pressionadas
-    document.addEventListener('keydown', direction);
-
-    function direction(event) {
-      if (event.keyCode == 37 && d != 'RIGHT') d = 'LEFT';
-      else if (event.keyCode == 38 && d != 'DOWN') d = 'UP';
-      else if (event.keyCode == 39 && d != 'LEFT') d = 'RIGHT';
-      else if (event.keyCode == 40 && d != 'UP') d = 'DOWN';
+        grid.appendChild(square);
+        squares.push(square);
+      }
+      // Limpar combinações geradas no início aleatório
+      checkMatches();
     }
 
-    // Checar colisão no próprio corpo
-    function collision(head, array) {
-      for (let i = 0; i < array.length; i++) {
-        if (head.x == array[i].x && head.y == array[i].y) {
-          return true;
+    createBoard();
+
+    // Lógica de Seleção
+    let firstSelected = null;
+
+    function candyClick() {
+      if (!firstSelected) {
+        firstSelected = this;
+        firstSelected.classList.add('selected');
+      } else {
+        let secondSelected = this;
+        firstSelected.classList.remove('selected');
+
+        let firstId = parseInt(firstSelected.id);
+        let secondId = parseInt(secondSelected.id);
+
+        // Movimentos válidos: Apenas vizinhos (cima, baixo, esquerda, direita)
+        const validMoves = [
+          firstId - 1,
+          firstId + 1,
+          firstId - width,
+          firstId + width
+        ];
+
+        let isValidMove = validMoves.includes(secondId);
+
+        // Impede troca nas bordas da esquerda/direita
+        if (firstId % width === 0 && secondId === firstId - 1) isValidMove = false;
+        if ((firstId + 1) % width === 0 && secondId === firstId + 1) isValidMove = false;
+
+        if (isValidMove) {
+          // Troca os doces
+          let tempCandy = firstSelected.innerText;
+          firstSelected.innerText = secondSelected.innerText;
+          secondSelected.innerText = tempCandy;
+
+          // Se a troca não gerar ponto, desfazer
+          let hasMatch = checkMatches();
+          if (!hasMatch) {
+            setTimeout(() => {
+              secondSelected.innerText = firstSelected.innerText;
+              firstSelected.innerText = tempCandy;
+            }, 250);
+          }
+        }
+        firstSelected = null;
+      }
+    }
+
+    // Verificar combinações de 3
+    function checkMatches() {
+      let matched = false;
+
+      // Linhas de 3
+      for (let i = 0; i < 64; i++) {
+        let rowOfThree = [i, i + 1, i + 2];
+        let decidedCandy = squares[i].innerText;
+        const isBlank = squares[i].innerText === '';
+
+        // Pular verificações que dobram a borda da direita
+        if (i % width > width - 3) continue;
+
+        if (rowOfThree.every(index => squares[index].innerText === decidedCandy && !isBlank)) {
+          score += 30;
+          scoreDisplay.innerText = score;
+          rowOfThree.forEach(index => squares[index].innerText = '');
+          matched = true;
         }
       }
-      return false;
+
+      // Colunas de 3
+      for (let i = 0; i < 48; i++) {
+        let columnOfThree = [i, i + width, i + width * 2];
+        let decidedCandy = squares[i].innerText;
+        const isBlank = squares[i].innerText === '';
+
+        if (columnOfThree.every(index => squares[index].innerText === decidedCandy && !isBlank)) {
+          score += 30;
+          scoreDisplay.innerText = score;
+          columnOfThree.forEach(index => squares[index].innerText = '');
+          matched = true;
+        }
+      }
+
+      return matched;
     }
 
-    // Função principal do jogo
-    function draw() {
-      // Limpar o canvas a cada frame
-      context.fillStyle = '#0f0f17';
-      context.fillRect(0, 0, canvas.width, canvas.height);
+    // Fazer os doces caírem e preencher espaços vazios
+    function moveDown() {
+      for (let i = 0; i < 56; i++) {
+        if (squares[i + width].innerText === '') {
+          squares[i + width].innerText = squares[i].innerText;
+          squares[i].innerText = '';
+        }
 
-      // Desenhar a cobrinha
-      for (let i = 0; i < snake.length; i++) {
-        context.fillStyle = (i == 0) ? '#4CAF50' : '#81C784'; // Cabeça mais escura
-        context.fillRect(snake[i].x, snake[i].y, box, box);
-
-        context.strokeStyle = '#0f0f17';
-        context.strokeRect(snake[i].x, snake[i].y, box, box);
+        // Gerar novos doces no topo
+        const firstRow = [0, 1, 2, 3, 4, 5, 6, 7];
+        const isFirstRow = firstRow.includes(i);
+        if (isFirstRow && squares[i].innerText === '') {
+          let randomCandy = candies[Math.floor(Math.random() * candies.length)];
+          squares[i].innerText = randomCandy;
+        }
       }
-
-      // Desenhar a comida
-      context.fillStyle = '#FF5252';
-      context.fillRect(food.x, food.y, box, box);
-
-      // Posição antiga da cabeça
-      let snakeX = snake[0].x;
-      let snakeY = snake[0].y;
-
-      // Mover a cabeça conforme a direção
-      if (d == 'LEFT') snakeX -= box;
-      if (d == 'UP') snakeY -= box;
-      if (d == 'RIGHT') snakeX += box;
-      if (d == 'DOWN') snakeY += box;
-
-      // Se a cobra comer a comida
-      if (snakeX == food.x && snakeY == food.y) {
-        score++;
-        scoreElement.innerText = score;
-        food = {
-          x: Math.floor(Math.random() * 19 + 1) * box,
-          y: Math.floor(Math.random() * 19 + 1) * box
-        };
-      } else {
-        // Remove a cauda se não comeu nada
-        snake.pop();
-      }
-
-      // Nova cabeça
-      let newHead = { x: snakeX, y: snakeY };
-
-      // Regras de Game Over (Colisão com bordas ou próprio corpo)
-      if (
-        snakeX < 0 || snakeX >= canvas.width ||
-        snakeY < 0 || snakeY >= canvas.height ||
-        collision(newHead, snake)
-      ) {
-        clearInterval(game);
-        alert(`Game Over! 💀\nSua pontuação final foi: ${score}`);
-        location.reload(); // Reinicia o jogo
-      }
-
-      snake.unshift(newHead);
     }
 
-    // Atualizar o jogo a cada 100ms
-    let game = setInterval(draw, 100);
+    // Loop do jogo para checar combinações e física de queda em tempo real
+    window.setInterval(function () {
+      moveDown();
+      checkMatches();
+    }, 100);
   </script>
 </body>
 </html>
