@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FPS/TPS 3D - Mira & 3ª Pessoa 🔫🎯</title>
+  <title>FPS/TPS 3D Corrigido 🔫🎯</title>
   <style>
     * {
       box-sizing: border-box;
@@ -32,9 +32,10 @@
       padding: 10px 20px;
       border-radius: 8px;
       border-left: 5px solid #ffaa00;
+      z-index: 5;
     }
 
-    /* Crosshair com dinâmica de mira */
+    /* Mira tática */
     #crosshair {
       position: absolute;
       top: 50%;
@@ -43,7 +44,7 @@
       height: 20px;
       transform: translate(-50%, -50%);
       pointer-events: none;
-      transition: opacity 0.1s ease;
+      z-index: 5;
     }
 
     #crosshair::before, #crosshair::after {
@@ -110,11 +111,9 @@
     let score = 0;
     let gunGroup, muzzleFlashLight, playerMesh;
 
-    // Estado de Visão e Mira
     let isThirdPerson = false;
     let isAiming = false;
 
-    // Movimentação
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
@@ -123,9 +122,8 @@
     const instructions = document.getElementById('instructions');
     const scoreElement = document.getElementById('score');
     const viewModeElement = document.getElementById('view-mode');
-    const crosshair = document.getElementById('crosshair');
 
-    // --- SINTETIZADOR DE ÁUDIO DE TIRO E EXPLOSÃO ---
+    // --- SINTETIZADOR DE ÁUDIO ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     function playGunshotSound() {
@@ -192,27 +190,23 @@
     }
 
     function init() {
-      // 1. Cena
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0xdbeafe);
       scene.fog = new THREE.FogExp2(0xdbeafe, 0.008);
 
-      // 2. Câmera
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-      // 3. Luzes
       scene.add(new THREE.AmbientLight(0xffffff, 0.7));
       const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
       sunLight.position.set(40, 80, 40);
       scene.add(sunLight);
 
-      // 4. Modelo do Soldado (Visível em 3ª pessoa)
-      createPlayerMesh();
-
-      // 5. Arma 3D
+      // Criar Arma
       createDetailedGun();
 
-      // 6. Controles
+      // Criar Soldado (separado da câmera)
+      createPlayerMesh();
+
       controls = new THREE.PointerLockControls(camera, document.body);
 
       instructions.addEventListener('click', () => controls.lock());
@@ -221,17 +215,15 @@
 
       scene.add(controls.getObject());
 
-      // Bloquear Menu de Contexto do Botão Direito para permitir Mira
       document.addEventListener('contextmenu', e => e.preventDefault());
 
-      // Eventos de Teclado
       document.addEventListener('keydown', (e) => {
         switch (e.code) {
           case 'KeyW': moveForward = true; break;
           case 'KeyA': moveLeft = true; break;
           case 'KeyS': moveBackward = true; break;
           case 'KeyD': moveRight = true; break;
-          case 'KeyV': toggleCameraView(); break; // Trocar 1ª e 3ª Pessoa
+          case 'KeyV': toggleCameraView(); break;
         }
       });
 
@@ -244,22 +236,19 @@
         }
       });
 
-      // Eventos do Mouse (Atirar e Mirar)
       document.addEventListener('mousedown', (e) => {
         if (!controls.isLocked) return;
-        if (e.button === 0) shoot();       // Clique Esquerdo: Tiro
-        if (e.button === 2) isAiming = true; // Clique Direito: Mirar
+        if (e.button === 0) shoot();
+        if (e.button === 2) isAiming = true;
       });
 
       document.addEventListener('mouseup', (e) => {
-        if (e.button === 2) isAiming = false; // Soltar Botão Direito: Desmira
+        if (e.button === 2) isAiming = false;
       });
 
-      // Ambiente e Alvos
       buildEnvironment();
       for (let i = 0; i < 8; i++) spawnTacticalTarget();
 
-      // Renderizador
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -268,24 +257,24 @@
       window.addEventListener('resize', onWindowResize);
     }
 
-    // Criar o Corpo do Soldado para 3ª Pessoa
+    // Modelo do Soldado para 3ª Pessoa (Posicionado atrás da arma)
     function createPlayerMesh() {
       playerMesh = new THREE.Group();
       const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
       const matArmor = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
 
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), matArmor);
-      torso.position.y = -0.35;
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.25), matArmor);
+      torso.position.set(0, -0.3, 0.3);
 
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), matBody);
-      head.position.y = 0.1;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), matBody);
+      head.position.set(0, 0.1, 0.3);
 
       playerMesh.add(torso, head);
-      playerMesh.visible = false; // Escondido na 1ª pessoa por padrão
+      playerMesh.visible = false; // Escondido na 1ª pessoa
       camera.add(playerMesh);
     }
 
-    // Criar Arma 3D
+    // Criar Arma
     function createDetailedGun() {
       gunGroup = new THREE.Group();
 
@@ -323,24 +312,20 @@
 
       gunGroup.add(receiver, mag, barrel, suppressor, scopeBody, scopeLens, grip, muzzleFlashLight);
       
-      // Posição inicial na 1ª Pessoa
       gunGroup.position.set(0.22, -0.18, -0.4);
       camera.add(gunGroup);
     }
 
-    // Alternar Câmeras (V)
+    // Alternar Visão
     function toggleCameraView() {
       isThirdPerson = !isThirdPerson;
       
       if (isThirdPerson) {
         viewModeElement.innerText = "3ª PESSOA";
-        playerMesh.visible = true; // Mostra o corpo do soldado
-        // Reposiciona a arma no braço do modelo
-        gunGroup.position.set(0.3, -0.35, -0.5);
+        playerMesh.visible = true;
       } else {
         viewModeElement.innerText = "1ª PESSOA";
-        playerMesh.visible = false; // Esconde o corpo para não cobrir a tela
-        gunGroup.position.set(0.22, -0.18, -0.4);
+        playerMesh.visible = false;
       }
     }
 
@@ -389,7 +374,6 @@
       muzzleFlashLight.intensity = 3;
       setTimeout(() => muzzleFlashLight.intensity = 0, 40);
 
-      // Recuo
       gunGroup.position.z += 0.08;
 
       const bulletGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 8);
@@ -421,29 +405,27 @@
       if (controls.isLocked) {
         const delta = (time - prevTime) / 1000;
 
-        // --- SISTEMA DE MIRA (ADS) E POSICIONAMENTO DE CÂMERA ---
+        // --- SISTEMA DE CÂMERA E MIRA ---
         if (!isThirdPerson) {
           // 1ª Pessoa
           if (isAiming) {
-            // Centraliza a arma na mira e dá Zoom (FOV 40)
             gunGroup.position.x += (0 - gunGroup.position.x) * 0.2;
             gunGroup.position.y += (-0.09 - gunGroup.position.y) * 0.2;
             gunGroup.position.z += (-0.25 - gunGroup.position.z) * 0.2;
             camera.fov += (40 - camera.fov) * 0.2;
           } else {
-            // Posição normal de quadril (FOV 75)
             gunGroup.position.x += (0.22 - gunGroup.position.x) * 0.2;
             gunGroup.position.y += (-0.18 - gunGroup.position.y) * 0.2;
             gunGroup.position.z += (-0.4 - gunGroup.position.z) * 0.2;
             camera.fov += (75 - camera.fov) * 0.2;
           }
         } else {
-          // 3ª Pessoa (Afasta Câmera)
-          if (isAiming) {
-            camera.fov += (45 - camera.fov) * 0.2; // Zoom na 3ª pessoa
-          } else {
-            camera.fov += (75 - camera.fov) * 0.2;
-          }
+          // 3ª Pessoa (Ajusta offset da arma sem bloquear a tela)
+          gunGroup.position.x += (0.35 - gunGroup.position.x) * 0.2;
+          gunGroup.position.y += (-0.25 - gunGroup.position.y) * 0.2;
+          gunGroup.position.z += (-0.6 - gunGroup.position.z) * 0.2;
+
+          camera.fov += (isAiming ? 45 : 75 - camera.fov) * 0.2;
         }
         camera.updateProjectionMatrix();
 
@@ -467,7 +449,7 @@
           t.rotation.y += 0.01;
         });
 
-        // Projéteis e Colisões
+        // Balas e Colisões
         for (let i = bullets.length - 1; i >= 0; i--) {
           const b = bullets[i];
           b.position.add(b.velocity);
